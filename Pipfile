@@ -1,0 +1,29 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[[source]]
+url = "https://download.pytorch.org/whl/cu118"
+verify_ssl = true
+name = "downloadpytorch"
+
+[packages]
+numpy = "*"
+rdkit = "*"
+pandas = "*"
+tqdm = "*"
+smilespe = "*"
+pyyaml = "*"
+japanize-matplotlib = "*"
+scikit-learn = "*"
+seaborn = "*"
+polars = "*"
+torch = {version = "*", index = "downloadpytorch"}
+pytest = "*"
+
+[dev-packages]
+ipykernel = "*"
+
+[requires]
+python_version = "3.9"
