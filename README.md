@@ -2,7 +2,7 @@
 The code repository of Deep Learning-Assisted De Novo Molecular Identification through Vibrational Spectra
 
 # How to run
-1. Prepare the data using QCForever. Data type should be pickle file. もっと詳しく
+1. Prepare the data using QCForever(https://github.com/molecule-generator-collection/QCforever). The molecules that exctracted from GDB are listed in SMILES.txt.
 2. Edit data_directory/create_data_scripts/constants.py and scripts/constants.py
 3. run pipenv install to creat the environment
 4. run chain.sh to crate the dataset
