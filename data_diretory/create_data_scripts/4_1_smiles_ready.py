@@ -6,7 +6,6 @@ import torch
 from tqdm import tqdm
 from consts import ORIGINAL_DATA_DIRECTORY, PROCESSED_DATA_DIRECTORY
 
-#ディレクトリが存在しない場合は作成
 import os
 HEAVY_SIZE = os.environ["HEAVY_SIZE"]
 os.makedirs(PROCESSED_DATA_DIRECTORY + f"/word_level_tokenized_{HEAVY_SIZE}", exist_ok=True)

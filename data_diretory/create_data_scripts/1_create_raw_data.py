@@ -12,16 +12,6 @@ from consts import ORIGINAL_DATA_DIRECTORY, PROCESSED_DATA_DIRECTORY
 MAX_SIZE = 9
 tokenizer = SPETokenizerWrapper()
 
-"""
-各リストはリストindicesで紐づく
-molecule_indicesは、moleculeの番号。全体のデータからどのデータが扱われたのかを知るために用いる
-"""
-
-
-"""
-まずはmolecule, smiles, freq, IR, Ramanを取得してそのままの形で保存
-"""
-
 heavy_size = deque()
 molecule_indices: List[int] = deque()
 smiles: List[str] = deque()
@@ -38,7 +28,7 @@ for i in tqdm(range(1, MAX_SIZE + 1)):
             molecule_indice = data[j]["index"]
             smile = data[j]["smiles"]
             freq = data[j]["freq"]
-            Ir = data[j]["IR"]  # IRは予約語
+            Ir = data[j]["IR"]
             Raman = data[j]["Raman"]
         except Exception as e:
             print(e)

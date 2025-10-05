@@ -69,20 +69,7 @@ def main(BATCH_SIZE, MODEL_NUMBER, N, device):
         f.write("time\n")
         f.write(str(end - start))
 
-
-
-    # model, train_loss_list, valid_loss_list = trainer.train_model_loop(
-    #     model,
-    #     {**training_params, "tokenizer_obj": tokenizer, "label_list":["reconstruct_rate"]}, #loop関数を統一するために仕方なく
-    #     train_dataloader,
-    #     valid_dataloader,
-    #     optimizer,
-    #     device,
-    # )
-
 if __name__ == "__main__":
     for model_number in ["Drop0_LR4_1", "Drop0_LR4_2", "Drop0_LR4_3"]:
-    # for model_number in ["Drop0_LR4_1"]:
         for N in [3, 5]:
             main(BATCH_SIZE=4096, MODEL_NUMBER = model_number, N=N, device = "cuda:0")
-    # main(BATCH_SIZE=4096, MODEL_NUMBER = "4_LR_change_3_1", N=5, device = "cuda:0")

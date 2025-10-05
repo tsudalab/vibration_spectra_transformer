@@ -25,7 +25,7 @@ class SmilesPredictor(nn.Module):
         # [batch_size, smiles_max_length, embedding_hidden_dimention]
         spectrum_attention_mask = spectrum_attention_mask.to(torch.bool)
         smiles_attention_masks = smiles_attention_masks.to(torch.bool)
-        x = self.decoder(z, smiles_embed, spectrum_attention_mask, smiles_attention_masks) #teacher forcingなlogitを出力
+        x = self.decoder(z, smiles_embed, spectrum_attention_mask, smiles_attention_masks)
         # [batch_size, smiles_max_length, vocab_size]
         return x
         
@@ -50,14 +50,13 @@ class SmilesPredictor(nn.Module):
                 logits_last = self.decoder(z, decoder_embed_last, spectrum_attention_mask, smiles_attention_masks)
                 # [batch_size, smiles_max_length, hidden_dimmention]
 
-            #for文次のinputのための準備
             logits = logits.permute([0, 2, 1])
             # [batch_size, smiles_vocab_size, smiles_max_len]
             decoder_inputs[:, i] = logits.max(1)[1][:, i - 1]
             # [batch_size, smiles_max_length]
         
-        generated_smiles_ids = decoder_inputs #名前変えるだけ
-        generated_logits = logits_last #名前かえるだけ
+        generated_smiles_ids = decoder_inputs
+        generated_logits = logits_last
         return generated_smiles_ids, generated_logits
 
 class Decoder(nn.Module):
@@ -66,7 +65,7 @@ class Decoder(nn.Module):
     """
     def __init__(self, params):
         super().__init__()
-        #要求するパラメータの確認
+        #check all parameter exists
         if not "smiles_max_length" in params:
             raise ValueError("smiles_max_length is required.")
         if not "decoder_hidden_dimention" in params:
@@ -105,16 +104,6 @@ class Decoder(nn.Module):
         """
         # [batch_size, smiles_max_length, decoder_hidden_dimention]
         self.tgt_mask = self.tgt_mask.to(smiles_embed.device)
-        # print("smiles_embed.shape")
-        # print(smiles_embed.shape)
-        # print("z.shape")
-        # print(z.shape)
-        # print("self.tgt_mask")
-        # print(self.tgt_mask.shape)
-        # print("smiles_attention_masks")
-        # print(smiles_attention_masks.shape)
-        # print("composition_attention_mask")
-        # print(composition_attention_mask.shape)
 
         x = self.transformer_decoder(
             tgt=smiles_embed,
@@ -156,19 +145,13 @@ class ThreeDimEncoder(nn.Module):
         attention_mask = attention_mask.to(torch.bool)
 
         x = torch.stack([freq, ir, raman], dim=1)
-        # print()
-        # print("x")
-        # print(x.shape)
         # [batch_size, 3, max_length]
         x = x.permute([0, 2, 1])
         # [batch_size, max_length, 3]
         x = self.dim_convert_layer(x)
         # [batch_size, max_length, hidden_dimention]
-        # print("x2")
-        # print(x.shape)
         x = self.transformer_encoder(x)
         # [batch_size, max_length, hidden_dimention]
-        # print()
         return x
     
     def encode(self, freq, ir, raman, attention_mask):
@@ -177,7 +160,7 @@ class ThreeDimEncoder(nn.Module):
 class Embedding(nn.Module):
     def __init__(self, params) -> None:
         super().__init__()
-        #要求するパラメータの確認
+        #check all parameter exists
         if not "smiles_max_length" in params:
             raise ValueError("smiles_max_length is required.")
         if not "smiles_vocab_size" in params:
@@ -190,10 +173,6 @@ class Embedding(nn.Module):
         self.word_embedding = nn.Embedding(
             params["smiles_vocab_size"], params["embed_dimention"]
         )
-        # self.word_embedding.weight.requires_grad = False
-        # self.positional_embeddings = nn.Embedding(
-        #     params["max_length"], params["encoder_hidden_dimention"]
-        # )
         self.positional_embeddings = PositionalEncoder(params)
 
     def forward(self, x):

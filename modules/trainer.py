@@ -10,10 +10,9 @@ import shutil
 from pathlib import Path
 
 
-# v7以降に対応
 class FunctionalTrainer:
     def batch_train(self, model, params, batch, epoch, optimizer, device):
-        model.train()  # 訓練モードで実行
+        model.train() 
         criterion = torch.nn.BCELoss()
         spectrum = batch[0].to(device)  # token id, output
         # [batch_size, max_length]
@@ -24,21 +23,20 @@ class FunctionalTrainer:
         # [batch_size, 38, 122]
         loss = criterion(
             predict_logits, labels
-        )  # outputのi個目のtokenはi+1個目のtokenを予測している　#KLlossは一旦固定で学習を回す
+        )
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(
             model.parameters(), max_norm=params["clip_max_grad_norm"]
-        )  # 勾配が急になりすぎないように transformerではいらない？
+        )
         optimizer.step()
 
         return model, loss.item()
 
     def batch_validation(self, model, params, batch, epoch, device):
-        # model.eval()  # 訓練モードをオフ (系列ありのtransformerではうまくいかない)
         criterion = torch.nn.BCELoss()
 
-        with torch.no_grad():  # 勾配を計算しない
+        with torch.no_grad(): 
             spectrum = batch[0].to(device)  # token id, output
             # [batch_size, max_length]
             labels = batch[1].to(device).to(torch.float32)
@@ -58,8 +56,6 @@ class FunctionalTrainer:
 
     def predicts_predictlogits_labels_return(self, model, data_loader, device):
         """
-        FreqIRRamanの後に同じような図を作るために作った。ので、labelsはそのまま返して意味ないけど、一応返す
-
         Return:
             model
             predicts: torch.Tensor
@@ -92,25 +88,22 @@ class FunctionalTrainer:
         optimizer,
         device,
     ):
-        #再現できるようにscriptを保存
         if not os.path.exists(Path(params["script_save_dirctory"]) / Path(params["train_script_path"]).name) or params["script_over_write"]:
             shutil.copy(params["train_script_path"], Path(params["script_save_dirctory"]) / Path(params["train_script_path"]).name) # copy2はメタデータをコピーしない
             def ignore_pycache(dir, contents):
                 return ['__pycache__']
             shutil.copytree(params["module_directory_path"], Path(params["script_save_dirctory"])/ Path(params["module_directory_path"]).name, ignore=ignore_pycache, dirs_exist_ok=True) # すでに存在する場合はsourcveで上書き
         
-        # 中でGPU
         model = model.to(device)
         train_loss_list = (
             []
-        )  # 基本的にtacher forcing. 途中からgreedyになる場合は、paramsで指定するがグラフは混ぜたものを表示する
+        )
         train_reconstruction_loss_list = []
         valid_loss_list = (
             []
-        )  # 基本的にtacher forcing. 途中からgreedyになる場合は、paramsで指定するがグラフは混ぜたものを表示する
-        valid_acc_list = []  # 基本的にgreedy
+        )
+        valid_acc_list = []
         valid_reconstruction_loss_list = []
-        # params["validation_step_interval_rate"]で指定された割合で記録する
         small_train_loss_list = []
         small_train_reconstruction_loss_list = []
         small_valid_loss_list = []
@@ -134,14 +127,14 @@ class FunctionalTrainer:
         small_train_loss = 0
         small_train_reconstruction_loss = 0
         small_train_kl_loss = (
-            0  # 常に計算はする。listへのappendはflagがtrueになってから
+            0
         )
         num_eval = 0
         total_steps = 0
         add_kl_flag = False
         kl_weight = 0
-        small_num_eval_list = []  # small_train_lossとかの記録に使う
-        num_eval_list = []  # train_lossとかの記録に使う
+        small_num_eval_list = []
+        num_eval_list = []
         for epoch in tqdm(range(1, params["num_epochs"] + 1)):
             # 初期化
             small_train_loss = 0
@@ -166,21 +159,14 @@ class FunctionalTrainer:
                         mode="min",
                         factor=params["lr_plateau_factor"], #default 0.1
                         patience=params["lr_plateau_patience"], #default 10
-                        threshold=params["lr_plateau_threshold"], #default 1e-4 #更新幅のthreshold
+                        threshold=params["lr_plateau_threshold"], #default 1e-4
                     )
-
-                    # scheduler = torch.optim.lr_scheduler.LinearLR(
-                    #     optimizer,
-                    #     start_factor=params["lr_start_factor"],
-                    #     end_factor=params["lr_end_factor"],
-                    #     total_iters=params["lr_annealing_total_steps"],
-                    # )
 
                 model, train_loss = self.batch_train(
                     model, params, batch, epoch, optimizer, device
                 )
 
-                big_train_loss += train_loss  # big, smallは考慮したbatch数の大きさであり、値自体はbatchごとの平均
+                big_train_loss += train_loss
                 small_train_loss += train_loss
                 if (
                     step
@@ -189,7 +175,6 @@ class FunctionalTrainer:
                     )
                     == 0
                 ):
-                    # small trainの記録
                     num_eval += 1
                     small_num_eval_list.append(num_eval)
 
@@ -200,13 +185,13 @@ class FunctionalTrainer:
                             params["validation_step_interval_rate"]
                             * len(data_loader_train)
                         )
-                    )  # small_train_lossが何stepからなるか
+                    ) 
                     print("loss_seps", loss_steps)
                     small_train_loss = (
                         small_train_loss / loss_steps
-                    )  # printで記録しなければならないので割っておく
+                    )
                     small_train_loss_list.append(small_train_loss)
-                    # 初期化
+                    # initialize
                     small_train_loss = 0
 
                     # small validation
@@ -235,7 +220,7 @@ class FunctionalTrainer:
                     print(f"steps:{step}")
                     print(
                         f"accumulated stpes:{(epoch - 1) * len(data_loader_train) + step}"
-                    )  # epochは1から始まる
+                    )  # epoch count starts from 1
                     print(f"small_train_loss:{small_train_loss}")
                     print(f"small_valid_loss:{small_valid_loss}")
                     with open(params["small_train_loss_filename"], "w") as f:
@@ -283,11 +268,11 @@ class FunctionalTrainer:
                     small_valid_acc_for_graph: torch.Tensor = (
                         torch.stack(small_valid_acc_list, dim=1).detach().cpu()
                     )
-                    # [num_label, eval回数]
+                    # [num_label, num of eval]
                     small_valid_acc_ALL: torch.Tensor = small_valid_acc_for_graph.mean(
                         0
                     )
-                    # [,eval回数]
+                    # [,num of eval]
                     for i in range(params["num_label"]):
                         ax2.plot(
                             small_num_eval_list,
@@ -314,8 +299,8 @@ class FunctionalTrainer:
                             torch.stack(valid_acc_list, dim=1).detach().cpu()
                         )
                         valid_acc_ALL: torch.Tensor = valid_acc_for_graph.mean(0)
-                    # [num_label, eval回数]
-                    # [,eval回数]
+                    # [num_label, num of eval]
+                    # [, num of eval]
                     for i in range(params["num_label"]):
                         ax3.plot(
                             num_eval_list,
@@ -357,7 +342,7 @@ class FunctionalTrainer:
                         else:
                             scheduler.step()
 
-            # big trainの記録
+            # big train
             num_eval_list.append(num_eval)
             big_train_loss = big_train_loss / len(data_loader_train)
             big_train_reconstruction_loss = big_train_reconstruction_loss / len(
@@ -387,7 +372,7 @@ class FunctionalTrainer:
             print(f"epoch:{epoch}")
             print(
                 f"accumulated stpes:{epoch * len(data_loader_train)}"
-            )  # epochは1から始まる
+            )  # epoch counts starts from 1
             print(f"big_train_loss:{big_train_loss}")
             print(f"big_valid_loss:{big_valid_loss}")
             with open(params["train_loss_filename"], "w") as f:
@@ -395,78 +380,6 @@ class FunctionalTrainer:
             with open(params["valid_loss_filename"], "w") as f:
                 f.write("\n".join([str(x) for x in valid_loss_list]))
 
-            # fig1 = plt.figure()
-            # fig2 = plt.figure()
-            # fig3 = plt.figure()
-            # ax1 = fig1.add_subplot(
-            #     111, xlabel="eval回数", ylabel="loss", title=f"{params['title']}_loss"
-            # )
-            # ax1.plot(
-            #     small_num_eval_list,
-            #     small_train_loss_list,
-            #     label="small_train_loss",
-            # )
-            # ax1.plot(
-            #     small_num_eval_list,
-            #     small_valid_loss_list,
-            #     label="small_valid_loss",
-            # )
-            # ax1.plot(
-            #     num_eval_list, #stepは1epochあたりのeval回数
-            #     train_loss_list,
-            #     label="train_loss",
-            # )
-            # ax1.plot(
-            #     num_eval_list,
-            #     valid_loss_list,
-            #     label="valid_loss",
-            # )
-            # ax2 = fig2.add_subplot(
-            #     111,
-            #     xlabel="eval回数",
-            #     ylabel="accuracy rate",
-            #     title=f"{params['title']}_greedy_accuracy_rate",
-            # )
-            # ax2.plot(
-            #     small_num_eval_list,
-            #     small_valid_acc_list,
-            #     label="small_valid_acc",
-            # )
-            # ax2.plot(
-            #     num_eval_list,
-            #     valid_acc_list,
-            #     label="valid_acc",
-            # )
-            # ax3 = fig3.add_subplot(
-            #     111, xlabel="eval回数", ylabel="reconstruction_loss", title=f"{params['title']}_reconstruction_loss"
-            # )
-            # ax3.plot(
-            #     small_num_eval_list,
-            #     small_train_reconstruction_loss_list,
-            #     label="small_train_reconstruction_loss",
-            # )
-            # ax3.plot(
-            #     small_num_eval_list,
-            #     small_valid_reconstruction_loss_list,
-            #     label="small_valid_reconstruction_loss",
-            # )
-            # ax3.plot(
-            #     num_eval_list, #stepは1epochあたりのeval回数
-            #     train_reconstruction_loss_list,
-            #     label="train_reconstruction_loss",
-            # )
-            # ax3.plot(
-            #     num_eval_list,
-            #     valid_reconstruction_loss_list,
-            #     label="valid_reconstruction_loss",
-            # )
-            # ax1.set_ylim(0, 10)
-            # ax1.legend()
-            # ax2.legend()
-            # ax3.legend()
-            # fig1.savefig(params["loss_fig_name"])
-            # fig2.savefig(params["accuracy_fig_name"])
-            # fig3.savefig(params["reconstruction_loss_fig_name"])
             fig1 = plt.figure(figsize=(20, 10))
             fig2 = plt.figure(figsize=(20, 10))
             fig3 = plt.figure(figsize=(20, 10))
@@ -484,7 +397,7 @@ class FunctionalTrainer:
                 label="small_valid_loss",
             )
             ax1.plot(
-                num_eval_list,  # stepは1epochあたりのeval回数
+                num_eval_list,
                 train_loss_list,
                 label="train_loss",
             )
@@ -502,9 +415,9 @@ class FunctionalTrainer:
             small_valid_acc_for_graph: torch.Tensor = (
                 torch.stack(small_valid_acc_list, dim=1).detach().cpu()
             )
-            # [num_label, eval回数]
+            # [num_label, num of eval]
             small_valid_acc_ALL: torch.Tensor = small_valid_acc_for_graph.mean(0)
-            # [,eval回数]
+            # [,num of eval]
             for i in range(params["num_label"]):
                 ax2.plot(
                     small_num_eval_list,
@@ -524,9 +437,9 @@ class FunctionalTrainer:
                 title=f"{params['title']}_big_accuracy_rate",
             )
             valid_acc_for_graph = torch.stack(valid_acc_list, dim=1).detach().cpu()
-            # [num_label, eval回数]
+            # [num_label, num of eval]
             valid_acc_ALL: torch.Tensor = valid_acc_for_graph.mean(0)
-            # [,eval回数]
+            # [,num of eval]
             for i in range(params["num_label"]):
                 ax3.plot(
                     num_eval_list,
@@ -551,10 +464,10 @@ class FunctionalTrainer:
         return model, train_loss_list, valid_loss_list
 
 class SmilesTrainer(FunctionalTrainer):
-    # オーバーライド
+    # overwrite
     def batch_train(self, model, params, batch, epoch, optimizer, device):
         criterion = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=0)
-        model.train()  # 訓練モードで実行
+        model.train()
         freq = batch[0].to(device)
         # [batch_size, spectrum_length] spectrum_length = 100
         ir = batch[1].to(device)
@@ -581,20 +494,19 @@ class SmilesTrainer(FunctionalTrainer):
         loss.backward()
         torch.nn.utils.clip_grad_norm_(
             model.parameters(), max_norm=params["clip_max_grad_norm"]
-        )  # 勾配が急になりすぎないように transformerではいらない？
+        ) 
         optimizer.step()
 
         return model, loss.item()
 
     def batch_validation(self, model, params, batch, epoch, device):
         """
-        出力はbatch_sizeで割られたもの。batch_sizeで割っているので、全体の平均（に近いもの）を出すには外側で普通にlen(data_laodar)で割ってよし
+        output is divided by batch_size. So, to get the overall average, you can simply divide by len(data_loader) outside.
 
         """
-        # model.eval()  # 訓練モードをオフ (系列ありのtransformerではうまくいかない)
         criterion = torch.nn.CrossEntropyLoss(reduction="mean", ignore_index=0)
 
-        with torch.no_grad():  # 勾配を計算しない
+        with torch.no_grad():
             freq = batch[0].to(device)
             # [batch_size, spectrum_length] spectrum_length = 100
             ir = batch[1].to(device)
@@ -622,16 +534,9 @@ class SmilesTrainer(FunctionalTrainer):
 
             generated_smiles_ids, generated_logits = model.generate(freq, ir, raman, spectrum_attention != spectrum_attention[0, 0], smiles_masks != smiles_masks[0, 0], params["bos_indice"]) # greedy (non teacher forcing)
             # [batch_size, smiles_max_length]
-            # smiles 文字列にしてから判定
             smiles:list[str] = params["tokenizer_obj"].decode_for_moses(smiles_ids)
             generated_smiles:list[str] = params["tokenizer_obj"].decode_for_moses(generated_smiles_ids)
-            # print("正解のsmiles")
-            # print(smiles)
-            # print("生成されたsmiles")
-            # print(generated_smiles)
             reconstruction_rate_tensor = sum([a == b for a, b in zip(smiles, generated_smiles)]) / len(smiles)
-            # [, 1]であるべきかもだが、一旦tensor(int)
-            # acc_tensorに合わせるために少し変だがreconstruction_rate_tensor
         return (
             model,
             loss.item(),
@@ -672,7 +577,6 @@ class SmilesTrainer(FunctionalTrainer):
                 generated_smiles_ids_list.append(generated_smiles_ids.to("cpu"))
                 generated_logits_list.append(generated_logits.to("cpu"))
                 smiles_ids_list.append(smiles_ids.to("cpu"))
-                # 判定 true_false_by_idsはeos tokenのあとは生成が適当になるので厳しい
                 # print(generated_smiles_ids == smiles_ids)
                 # print(torch.all(torch.eq(generated_smiles_ids, smiles_ids), dim=1))
                 # print(torch.all(torch.eq(generated_smiles_ids, smiles_ids), dim=1).shape)
@@ -722,24 +626,16 @@ class SmilesTrainer(FunctionalTrainer):
             smiles_ids = smiles_ids.to(device)
             smiles_attention_mask = smiles_attention_mask != smiles_attention_mask[0]
             smiles_attention_mask = smiles_attention_mask.to(device)
-            # print()
-            # print("in eval_topN")
-            # print(freq.shape)
-            # print(ir.shape)
-            # print(raman.shape)
             z = model.encoder.encode(freq, ir, raman, spectrum_attention_mask)
             #[3, 128]
             decoder_inputs = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                 N, smiles_max_length
             )
             decoder_inputs[:, 0] = bos_indice
-            # print()
-            # print("deoder_inputs)")
-            # print(deoder_inputs)
             logit_average_topN = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                 N
             )
-            save_smiles_list = [] #eosがきたらこっちにいれる
+            save_smiles_list = []
             for i in range(1, smiles_max_length):
                 decoder_embed_topN = model.smiles_emb(decoder_inputs)
                 # [N, smils_max_length, 128]
@@ -760,9 +656,8 @@ class SmilesTrainer(FunctionalTrainer):
                 # print()
                 logits_topN =  model.decoder(z_expand, decoder_embed_topN, spectrum_attention_mask_expand, smiles_attention_mask_expand)[:, i-1, :]
                 if i == 1:
-                    #logits_topNは完全に一緒なので最初だけ Next_decoder_inputs_listを普通にtop3で更新
                     Next_decoder_inputs_list = []
-                    topk_values, topk_indices = logits_topN[0].topk(K) #代表の1個で良い
+                    topk_values, topk_indices = logits_topN[0].topk(K) #only 1 is OK
                     Next_decoder_inputs_list = []
                     for j in range(K):
                         logit_average_topN[j] = topk_values[j]
@@ -775,12 +670,11 @@ class SmilesTrainer(FunctionalTrainer):
                 else:
                     logit_average_topK_flatten = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                         K * K
-                    ) #flattenにしているのはmaxを取るため
+                    ) #flatten because to take max
                     smiles_ids_topK_flaten = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                         K * K, smiles_max_length
-                    ) #logit_average_topK_flattenに対応するsmiles_ids(フル)
+                    ) 
                     for j in range(K):
-                        #それぞれの候補に対して伸長する
                         topk_values, topk_indices = logits_topN[j].topk(K)
                         for l in range(K):
                             logit_average_topK_flatten[j * K + l]
@@ -796,22 +690,11 @@ class SmilesTrainer(FunctionalTrainer):
                             save_smiles_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
                         else:
                             Next_decoder_inputs_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                        # print("logit_average_topN_flatten_indices")
-                        # print(logit_average_topN_flatten_indices[j])
-                        # print(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                #更新
-                # print()
-
-                # print("i, save_smiles_list")
-                # print(i, save_smiles_list)
                 if len(save_smiles_list) == N:
                     break
-                    
-                # print("Next_deoder_inputs_list")
-                # print(Next_deoder_inputs_list)
+
                 decoder_inputs = torch.stack(Next_decoder_inputs_list)
-                # print("decoder_inputs2")
-                # print(decoder_inputs)
+
             
             #check
             try:
@@ -824,12 +707,6 @@ class SmilesTrainer(FunctionalTrainer):
                 if answer == p:
                     CORRECT_COUNT += 1
                     break
-            
-            print()
-            print("answer")
-            print(answer)
-            print("predicts")
-            print(predicts)
         return CORRECT_COUNT / DATA_NUM
 
     def eval_topN_for_analysys(self, model, training_params, dataset_test, N, device):
@@ -850,9 +727,6 @@ class SmilesTrainer(FunctionalTrainer):
             freq = freq.to(device)
             ir = ir.to(device)
             raman = raman.to(device)
-            # freq = freq.unsqueeze(0).repeat(N, 1)
-            # ir = ir.unsqueeze(0).repeat(N, 1)
-            # raman = raman.unsqueeze(0).repeat(N, 1)
             freq = freq.unsqueeze(0)
             ir = ir.unsqueeze(0)
             raman = raman.unsqueeze(0)
@@ -861,47 +735,30 @@ class SmilesTrainer(FunctionalTrainer):
             smiles_ids = smiles_ids.to(device)
             smiles_attention_mask = smiles_attention_mask != smiles_attention_mask[0]
             smiles_attention_mask = smiles_attention_mask.to(device)
-            # print()
-            # print("in eval_topN")
-            # print(freq.shape)
-            # print(ir.shape)
-            # print(raman.shape)
+
             z = model.encoder.encode(freq, ir, raman, spectrum_attention_mask)
             #[3, 128]
             decoder_inputs = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                 N, smiles_max_length
             )
             decoder_inputs[:, 0] = bos_indice
-            # print()
-            # print("deoder_inputs)")
-            # print(deoder_inputs)
+
             logit_average_topN = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                 N
             )
-            save_smiles_list = [] #eosがきたらこっちにいれる
+            save_smiles_list = []
             for i in range(1, smiles_max_length):
                 decoder_embed_topN = model.smiles_emb(decoder_inputs)
                 # [N, smils_max_length, 128]
                 spectrum_attention_mask_expand = spectrum_attention_mask.unsqueeze(0).repeat(decoder_inputs.shape[0], 1)
                 smiles_attention_mask_expand = smiles_attention_mask.unsqueeze(0).repeat(decoder_inputs.shape[0], 1)
-                # z_expand = z.unsqueeze(0).repeat(decoder_inputs.shape[0], 1, 1)
-                
-                # print()
-                # print("z")
-                # print(z.shape)
-                # print("decoder_embed_topN")
-                # print(decoder_embed_topN.shape)
                 # [N, vocab_size]
                 K = N - len(save_smiles_list)
                 z_expand = z.repeat(decoder_inputs.shape[0], 1, 1)
-                # print("z_expand")
-                # print(z_expand.shape)
-                # print()
                 logits_topN =  model.decoder(z_expand, decoder_embed_topN, spectrum_attention_mask_expand, smiles_attention_mask_expand)[:, i-1, :]
                 if i == 1:
-                    #logits_topNは完全に一緒なので最初だけ Next_decoder_inputs_listを普通にtop3で更新
                     Next_decoder_inputs_list = []
-                    topk_values, topk_indices = logits_topN[0].topk(K) #代表の1個で良い
+                    topk_values, topk_indices = logits_topN[0].topk(K)
                     Next_decoder_inputs_list = []
                     for j in range(K):
                         logit_average_topN[j] = topk_values[j]
@@ -914,12 +771,11 @@ class SmilesTrainer(FunctionalTrainer):
                 else:
                     logit_average_topK_flatten = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                         K * K
-                    ) #flattenにしているのはmaxを取るため
+                    ) 
                     smiles_ids_topK_flaten = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                         K * K, smiles_max_length
-                    ) #logit_average_topK_flattenに対応するsmiles_ids(フル)
+                    )
                     for j in range(K):
-                        #それぞれの候補に対して伸長する
                         topk_values, topk_indices = logits_topN[j].topk(K)
                         for l in range(K):
                             logit_average_topK_flatten[j * K + l]
@@ -935,22 +791,11 @@ class SmilesTrainer(FunctionalTrainer):
                             save_smiles_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
                         else:
                             Next_decoder_inputs_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                        # print("logit_average_topN_flatten_indices")
-                        # print(logit_average_topN_flatten_indices[j])
-                        # print(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                #更新
-                # print()
 
-                # print("i, save_smiles_list")
-                # print(i, save_smiles_list)
                 if len(save_smiles_list) == N:
                     break
-                    
-                # print("Next_deoder_inputs_list")
-                # print(Next_deoder_inputs_list)
+
                 decoder_inputs = torch.stack(Next_decoder_inputs_list)
-                # print("decoder_inputs2")
-                # print(decoder_inputs)
             
             #check
             try:
@@ -996,9 +841,6 @@ class SmilesTrainer(FunctionalTrainer):
             freq = freq.to(device)
             ir = ir.to(device)
             raman = raman.to(device)
-            # freq = freq.unsqueeze(0).repeat(N, 1)
-            # ir = ir.unsqueeze(0).repeat(N, 1)
-            # raman = raman.unsqueeze(0).repeat(N, 1)
             freq = freq.unsqueeze(0)
             ir = ir.unsqueeze(0)
             raman = raman.unsqueeze(0)
@@ -1007,47 +849,28 @@ class SmilesTrainer(FunctionalTrainer):
             smiles_ids = smiles_ids.to(device)
             smiles_attention_mask = smiles_attention_mask != smiles_attention_mask[0]
             smiles_attention_mask = smiles_attention_mask.to(device)
-            # print()
-            # print("in eval_topN")
-            # print(freq.shape)
-            # print(ir.shape)
-            # print(raman.shape)
             z = model.encoder.encode(freq, ir, raman, spectrum_attention_mask)
             #[3, 128]
             decoder_inputs = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                 N, smiles_max_length
             )
             decoder_inputs[:, 0] = bos_indice
-            # print()
-            # print("deoder_inputs)")
-            # print(deoder_inputs)
             logit_average_topN = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                 N
             )
-            save_smiles_list = [] #eosがきたらこっちにいれる
+            save_smiles_list = []
             for i in range(1, smiles_max_length):
                 decoder_embed_topN = model.smiles_emb(decoder_inputs)
                 # [N, smils_max_length, 128]
                 spectrum_attention_mask_expand = spectrum_attention_mask.unsqueeze(0).repeat(decoder_inputs.shape[0], 1)
                 smiles_attention_mask_expand = smiles_attention_mask.unsqueeze(0).repeat(decoder_inputs.shape[0], 1)
-                # z_expand = z.unsqueeze(0).repeat(decoder_inputs.shape[0], 1, 1)
                 
-                # print()
-                # print("z")
-                # print(z.shape)
-                # print("decoder_embed_topN")
-                # print(decoder_embed_topN.shape)
-                # [N, vocab_size]
                 K = N - len(save_smiles_list)
                 z_expand = z.repeat(decoder_inputs.shape[0], 1, 1)
-                # print("z_expand")
-                # print(z_expand.shape)
-                # print()
                 logits_topN =  model.decoder(z_expand, decoder_embed_topN, spectrum_attention_mask_expand, smiles_attention_mask_expand)[:, i-1, :]
                 if i == 1:
-                    #logits_topNは完全に一緒なので最初だけ Next_decoder_inputs_listを普通にtop3で更新
                     Next_decoder_inputs_list = []
-                    topk_values, topk_indices = logits_topN[0].topk(K) #代表の1個で良い
+                    topk_values, topk_indices = logits_topN[0].topk(K)
                     Next_decoder_inputs_list = []
                     for j in range(K):
                         logit_average_topN[j] = topk_values[j]
@@ -1060,12 +883,11 @@ class SmilesTrainer(FunctionalTrainer):
                 else:
                     logit_average_topK_flatten = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                         K * K
-                    ) #flattenにしているのはmaxを取るため
+                    )
                     smiles_ids_topK_flaten = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                         K * K, smiles_max_length
-                    ) #logit_average_topK_flattenに対応するsmiles_ids(フル)
+                    )
                     for j in range(K):
-                        #それぞれの候補に対して伸長する
                         topk_values, topk_indices = logits_topN[j].topk(K)
                         for l in range(K):
                             logit_average_topK_flatten[j * K + l]
@@ -1081,22 +903,10 @@ class SmilesTrainer(FunctionalTrainer):
                             save_smiles_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
                         else:
                             Next_decoder_inputs_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                        # print("logit_average_topN_flatten_indices")
-                        # print(logit_average_topN_flatten_indices[j])
-                        # print(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                #更新
-                # print()
-
-                # print("i, save_smiles_list")
-                # print(i, save_smiles_list)
                 if len(save_smiles_list) == N:
                     break
                     
-                # print("Next_deoder_inputs_list")
-                # print(Next_deoder_inputs_list)
                 decoder_inputs = torch.stack(Next_decoder_inputs_list)
-                # print("decoder_inputs2")
-                # print(decoder_inputs)
             
 
             #check
@@ -1106,7 +916,7 @@ class SmilesTrainer(FunctionalTrainer):
                 print(save_smiles_list)
                 raise Exception(e)
             
-            #CONF_numの取得
+            #CONF_num
             def get_conf_num(smiles: str):
                 count_c = smiles.lower().count("c")
                 count_N = smiles.lower().count("n")
@@ -1125,16 +935,10 @@ class SmilesTrainer(FunctionalTrainer):
                 if answer == p:
                     CORRECT_COUNT += 1
                     break
-            
-            print()
-            print("answer")
-            print(answer)
-            print("predicts")
-            print(predicts)
+
         return CORRECT_COUNT / DATA_NUM, sum(conf_num_list) / len(conf_num_list)
 
     def topN_with_1sample(self, model, training_params, dataset_test, N, device):
-        #コード完成してないかも
         DATA_NUM = len(dataset_test)
         CORRECT_COUNT = 0
 
@@ -1149,9 +953,6 @@ class SmilesTrainer(FunctionalTrainer):
             freq = freq.to(device)
             ir = ir.to(device)
             raman = raman.to(device)
-            # freq = freq.unsqueeze(0).repeat(N, 1)
-            # ir = ir.unsqueeze(0).repeat(N, 1)
-            # raman = raman.unsqueeze(0).repeat(N, 1)
             freq = freq.unsqueeze(0)
             ir = ir.unsqueeze(0)
             raman = raman.unsqueeze(0)
@@ -1160,24 +961,16 @@ class SmilesTrainer(FunctionalTrainer):
             smiles_ids = smiles_ids.to(device)
             smiles_attention_mask = smiles_attention_mask != smiles_attention_mask[0]
             smiles_attention_mask = smiles_attention_mask.to(device)
-            # print()
-            # print("in eval_topN")
-            # print(freq.shape)
-            # print(ir.shape)
-            # print(raman.shape)
             z = model.encoder.encode(freq, ir, raman, spectrum_attention_mask)
             #[3, 128]
             decoder_inputs = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                 N, smiles_max_length
             )
             decoder_inputs[:, 0] = bos_indice
-            # print()
-            # print("deoder_inputs)")
-            # print(deoder_inputs)
             logit_average_topN = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                 N
             )
-            save_smiles_list = [] #eosがきたらこっちにいれる
+            save_smiles_list = []
             for i in range(1, smiles_max_length):
                 decoder_embed_topN = model.smiles_emb(decoder_inputs)
                 # [N, smils_max_length, 128]
@@ -1200,7 +993,7 @@ class SmilesTrainer(FunctionalTrainer):
                 if i == 1:
                     #logits_topNは完全に一緒なので最初だけ Next_decoder_inputs_listを普通にtop3で更新
                     Next_decoder_inputs_list = []
-                    topk_values, topk_indices = logits_topN[0].topk(K) #代表の1個で良い
+                    topk_values, topk_indices = logits_topN[0].topk(K)
                     Next_decoder_inputs_list = []
                     for j in range(K):
                         logit_average_topN[j] = topk_values[j]
@@ -1213,12 +1006,11 @@ class SmilesTrainer(FunctionalTrainer):
                 else:
                     logit_average_topK_flatten = torch.tensor([0], device=z.device, dtype=torch.float).repeat(
                         K * K
-                    ) #flattenにしているのはmaxを取るため
+                    )
                     smiles_ids_topK_flaten = torch.tensor([0], device=z.device, dtype=torch.int).repeat(
                         K * K, smiles_max_length
-                    ) #logit_average_topK_flattenに対応するsmiles_ids(フル)
+                    )
                     for j in range(K):
-                        #それぞれの候補に対して伸長する
                         topk_values, topk_indices = logits_topN[j].topk(K)
                         for l in range(K):
                             logit_average_topK_flatten[j * K + l]
@@ -1234,22 +1026,10 @@ class SmilesTrainer(FunctionalTrainer):
                             save_smiles_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
                         else:
                             Next_decoder_inputs_list.append(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                        # print("logit_average_topN_flatten_indices")
-                        # print(logit_average_topN_flatten_indices[j])
-                        # print(smiles_ids_topK_flaten[logit_average_topN_flatten_indices[j], :])
-                #更新
-                # print()
-
-                # print("i, save_smiles_list")
-                # print(i, save_smiles_list)
                 if len(save_smiles_list) == N:
                     break
                     
-                # print("Next_deoder_inputs_list")
-                # print(Next_deoder_inputs_list)
                 decoder_inputs = torch.stack(Next_decoder_inputs_list)
-                # print("decoder_inputs2")
-                # print(decoder_inputs)
             
             #check
             try:
@@ -1282,7 +1062,7 @@ class SmilesTrainer(FunctionalTrainer):
             # print("batch & contents")
             # print(batch[0].shape)
             model, valid_loss, valid_acc = (
-                self.batch_validation(  # kl_lossはbigでは使わない
+                self.batch_validation( 
                     model, params, batch, epoch, device
                 )
             )

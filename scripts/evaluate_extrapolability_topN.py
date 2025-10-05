@@ -19,26 +19,16 @@ tokenizer = SPETokenizerWrapper()
 
 def main(BATCH_SIZE, MODEL_NUMBER, N, atom_size, device):
     LR = 1e-4
-    # DATA_DIRECTORY = f"/home/Futo/IR_and_Raman/data_directory/GDB9/word_level_tokenized"
-    DATA_DIRECTORY = f"/home/Futo/IR_and_Raman/data_directory/MMP05percent_extractLikeGDB/word_level_tokenized_{atom_size}"
+    DATA_DIRECTORY = f"data_directory/MMP05percent_extractLikeGDB/word_level_tokenized_{atom_size}"
 
     SAVE_DIRECTORY_NAME = f"{MODEL_NUMBER}"
-    BASE_DIRECTORY = f"/home/Futo/IR_and_Raman/Result_directory/Smiles_predict_3dim_ir_raman_concatenate"
+    BASE_DIRECTORY = f"your_result_dicrectory_path"
     MODEL_DIRECTORY = "Trained_models"
     RESULT_DIRECTOROY = "Result_graphs"
     os.makedirs(f"{BASE_DIRECTORY}/{MODEL_DIRECTORY}/{SAVE_DIRECTORY_NAME}/", exist_ok=True)
     os.makedirs(f"{BASE_DIRECTORY}/{MODEL_DIRECTORY}/{SAVE_DIRECTORY_NAME}/scripts", exist_ok=True)
     os.makedirs(f"{BASE_DIRECTORY}/{RESULT_DIRECTOROY}/{SAVE_DIRECTORY_NAME}/", exist_ok=True)
-    """
-    データセット
-    """
     from torch.utils.data import DataLoader, TensorDataset
-    # src_test_freq = torch.load(os.path.join(DATA_DIRECTORY, "test/freqs.pt"), map_location="cpu")
-    # src_test_IR = torch.load(os.path.join(DATA_DIRECTORY, "test/IRs.pt"), map_location="cpu")
-    # src_test_Raman = torch.load(os.path.join(DATA_DIRECTORY, "test/Ramans.pt"), map_location="cpu")
-    # src_test_attention_masks = torch.load(os.path.join(DATA_DIRECTORY, "test/freq_attention_masks.pt"), map_location="cpu")
-    # smiles_test = torch.load(os.path.join(DATA_DIRECTORY, "test/smiles_ids.pt"), map_location="cpu")
-    # smiles_attention_mask_test = torch.load(os.path.join(DATA_DIRECTORY, "test/smiles_attention_masks.pt"), map_location="cpu")
 
     src_test_freq = torch.load(os.path.join(DATA_DIRECTORY, "freqs.pt"), map_location="cpu")
     src_test_IR = torch.load(os.path.join(DATA_DIRECTORY, "IRs.pt"), map_location="cpu")
@@ -80,20 +70,8 @@ def main(BATCH_SIZE, MODEL_NUMBER, N, atom_size, device):
         f.write("time\n")
         f.write(str(end - start))
 
-
-
-    # model, train_loss_list, valid_loss_list = trainer.train_model_loop(
-    #     model,
-    #     {**training_params, "tokenizer_obj": tokenizer, "label_list":["reconstruct_rate"]}, #loop関数を統一するために仕方なく
-    #     train_dataloader,
-    #     valid_dataloader,
-    #     optimizer,
-    #     device,
-    # )
-
 if __name__ == "__main__":
     for model_number in ["Drop0_LR4_1", "Drop0_LR4_2", "Drop0_LR4_3"]:
         for N in [3, 5, 10, 20, 30, 40, 50, 100]:
             for atom_size in range(10, 12):
                 main(BATCH_SIZE=4096, MODEL_NUMBER = model_number, N=N, atom_size=atom_size, device = "cuda:0")
-    # main(BATCH_SIZE=4096, MODEL_NUMBER = "4_LR_change_3_1", N=5, device = "cuda:0")

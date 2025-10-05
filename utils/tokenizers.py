@@ -20,8 +20,8 @@ DATA_DIRECTORY = "/home/Futo/molGPT_repro/data_directory"
 ATOM_JSON_PATH = os.path.join(DATA_DIRECTORY, "atom_vocab.json")
 SPE_VOCAB_FILE_PATH = os.path.join(
     DATA_DIRECTORY, "SPE_ChEMBL.txt"
-)  # SPEライブラリのtokenizerで用いるvocabファイルへのパス
-SPE_MAX_TOKENIZED_LENGTH = 30 + 2  # [BOS]と[EOS]を含む
+)  # path to vocab file
+SPE_MAX_TOKENIZED_LENGTH = 30 + 2  # +2 for [BOS] and [EOS]
 
 
 class BatchEncoding:
@@ -40,20 +40,13 @@ class BatchEncoding:
 
 
 class SPETokenizerWrapper:
-    """
-    問題点：
-    toknizeの語彙はChemBLからきている
-    最小単位であるatomに、語彙に含まれない単語(zincにしか存在しない)が存在するので、wrapperでそこを解決する
-    """
 
     def __init__(self, spe_vocab_file_path: Optional[str] = None, atoms_list: Optional[List[str]] = None, vocab_list = None) -> None:
         """
-        spe_vocab_file_path: SPEの語彙ファイルへのパス 存在しないときはCHEMBLのものを用いる
-        atoms_list: atomのリスト 存在しないときはCHEMBLのものを用いる
+        spe_vocab_file_path: path to vocab file
+        atoms_list: list of atoms to be included in vocab
         """
 
-        # SPE_tokenizerのインスタンス化
-        # SPE_tokenerはファイルオブジェクトを受け取る
         if spe_vocab_file_path is None:
             spe_vocab_file_path = SPE_VOCAB_FILE_PATH
         with open(spe_vocab_file_path, "r") as f:
@@ -63,7 +56,7 @@ class SPETokenizerWrapper:
             atoms_dict = yaml.safe_load(open(ATOM_JSON_PATH))
             atoms_list = list(atoms_dict.keys())
 
-        # vocab_listの作成)
+        # vocab_list
         if vocab_list is None:
             vocab_list = list(self.spe_tokenizer.bpe_codes_reverse.keys())
             vocab_list.extend(atoms_list)
@@ -71,25 +64,19 @@ class SPETokenizerWrapper:
             vocab_list.append("[BOS]")
             vocab_list.append("[EOS]")
 
-        # encode, decode処理で用いるdictを作成
+        # dicts for encode and decode
         self.VOCABS_INDICES = dict((c, i) for i, c in enumerate(vocab_list))
         self.INDICES_VOCABS = dict((i, c) for i, c in enumerate(vocab_list))
 
         """
         便利変数
         """
-        # vocab_listの長さ
+        # length of vocab_list
         self.vocab_size = len(vocab_list)
         self.vocab_list = vocab_list
         
 
     def tokenize(self, smiles_list: Union[str, List[str]]) -> Union[str, List[str]]:
-        """
-        1分子がテキストできたらテキストで
-        複数分子がリストできたらリストで
-        返す
-        基本的にはリストを想定
-        """
         if isinstance(smiles_list, str):
             return self.spe_tokenizer.tokenize(smiles_list)
         else:
@@ -128,7 +115,7 @@ class SPETokenizerWrapper:
     def decode(self, encoded_tensors) -> List[List[str]]:
         smiles_list = deque()
 
-        # 一分子のみの時
+        # Only 1 molecule as iput
         if len(encoded_tensors.size()) == 1:
             smile = []
             for idx in encoded_tensors:
@@ -140,7 +127,7 @@ class SPETokenizerWrapper:
             smiles_list.append(smile)
             return list(smiles_list)
 
-        # 複数分子まとめて入力したとき
+        # Multiple molecules as input
         else:
             for encoded_smile in encoded_tensors:
                 smile = []
@@ -170,22 +157,18 @@ class SPETokenizerWrapper:
 class CharLevelTokenizer:
     def __init__(self, CHARS: List[str]=None, max_length=75 + 2) -> None:
         """
-        max_length: [BOS]と[EOS]を入れるため+2
+        max_length: +2 for [BOS] and [EOS]
         """
         if CHARS is None:
-            CHARS = yaml.safe_load(open( "/home/Futo/molGPT_repro/zinc.json"))
+            CHARS = yaml.safe_load(open( "your_path_to/char_vocab.json"))
         self.CHARS = copy.deepcopy(CHARS)
         self.CHARS.insert(0, "[PAD]")
         self.CHARS.append("[BOS]")
         self.CHARS.append("[EOS]")
         self.vocab_size = len(self.CHARS)
-        #名前をself.CHAR_IND ICES→self.CHAR_VOCABSに変更
-        #SPEとの統一性を保つため
         self.VOCABS_INDICES = dict((c, i) for i, c in enumerate(self.CHARS))
         self.INDICES_VOCABS = dict((i, c) for i, c in enumerate(self.CHARS))
         self.INDICES_VOCABS[0] = " "
-
-        # todo params受け取り
         self.max_length = max_length
 
     def __call__(self, smiles_list) -> BatchEncoding:
@@ -217,12 +200,10 @@ class CharLevelTokenizer:
     def decode(self, encoded_tensors: torch.Tensor) -> List[List[str]]:
         """
         encoded_tensors: [data_size, max_length] 
-            max_lengthは[BOS]と[EOS]を含む
-            zincの場合はmax_length=75+2
-            IBMデータセットの場合はmax_length=
+            max_length includes [BOS] and [EOS]
 
         Returns:
-            smiles_list: [data_size, max_length] 出力には[BOS]と[EOS]を含む
+            smiles_list: [data_size, max_length] includes [BOS] and [EOS]
         """
         smiles_list = deque()
         if len(encoded_tensors.size()) == 1:
@@ -236,7 +217,7 @@ class CharLevelTokenizer:
             smiles_list.append(smile)
             return list(smiles_list)
         
-        # 複数分子まとめて入力したとき
+        # Multiple molecules as input
         else:
             for encoded_smile in encoded_tensors:
                 smile = []
@@ -251,15 +232,10 @@ class CharLevelTokenizer:
 
     def decode_for_moses(self, encoded_tensors: torch.Tensor) -> List[str]:
         """
-        リストの要素は完全なsmiles
-
-        encoded_tensors: [data_size, max_length] 
-            max_lengthは[BOS]と[EOS]を含む
-            zincの場合はmax_length=75+2
-            IBMデータセットの場合はmax_length=
+        the list is composed of smiles strings
 
         Returns:
-            smiles_list: [data_size,] 出力には[BOS]と[EOS]を含む
+            smiles_list: [data_size,] includes [BOS] and [EOS]
         """
         smiles_list = deque()
         for encoded_smile in encoded_tensors:

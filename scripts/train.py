@@ -31,6 +31,8 @@ from constants import (
     DECODER_NUM_LAYERS,
     DECODER_N_HEADS,
     DECODER_HIDDEN_DIMENSION,
+    DATA_DIRECTORY,
+    EMBEDDING_DIMENTION
 )
 tokenizer = SPETokenizerWrapper()
 
@@ -102,83 +104,24 @@ def main(BATCH_SIZE):
         pass
 
     print(int(tokenizer.VOCABS_INDICES["[BOS]"]))
-    """
-    データセット
-    """
     from torch.utils.data import DataLoader, TensorDataset
     src_train_freq = torch.load(os.path.join(DATA_DIRECTORY, "train/freqs.pt"), map_location="cpu")
     src_val_freq = torch.load(os.path.join(DATA_DIRECTORY, "valid/freqs.pt"), map_location="cpu")
-    src_test_freq = torch.load(os.path.join(DATA_DIRECTORY, "test/freqs.pt"), map_location="cpu")
     src_train_IR = torch.load(os.path.join(DATA_DIRECTORY, "train/IRs.pt"), map_location="cpu")
     src_val_IR = torch.load(os.path.join(DATA_DIRECTORY, "valid/IRs.pt"), map_location="cpu")
-    src_test_IR = torch.load(os.path.join(DATA_DIRECTORY, "test/IRs.pt"), map_location="cpu")
     src_train_Raman = torch.load(os.path.join(DATA_DIRECTORY, "train/Ramans.pt"), map_location="cpu")
     src_val_Raman = torch.load(os.path.join(DATA_DIRECTORY, "valid/Ramans.pt"), map_location="cpu")
-    src_test_Raman = torch.load(os.path.join(DATA_DIRECTORY, "test/Ramans.pt"), map_location="cpu")
     src_train_attention_masks = torch.load(os.path.join(DATA_DIRECTORY, "train/freq_attention_masks.pt"), map_location="cpu")
     src_val_attention_masks = torch.load(os.path.join(DATA_DIRECTORY, "valid/freq_attention_masks.pt"), map_location="cpu")
-    src_test_attention_masks = torch.load(os.path.join(DATA_DIRECTORY, "test/freq_attention_masks.pt"), map_location="cpu")
-    composition_train_chars = torch.load(os.path.join(DATA_DIRECTORY, "train/compositions_char_tokenized.pt"), map_location="cpu")
-    composition_valid_chars = torch.load(os.path.join(DATA_DIRECTORY, "valid/compositions_char_tokenized.pt"), map_location="cpu")
-    composition_train_masks = torch.load(os.path.join(DATA_DIRECTORY, "train/compositions_char_attention_mask.pt"), map_location="cpu")
-    composition_valid_masks = torch.load(os.path.join(DATA_DIRECTORY, "valid/compositions_char_attention_mask.pt"), map_location="cpu")
-    # src_train_sparse_float_IR = torch.load(os.path.join(DATA_DIRECTORY, "train/sparse_float_IRs.pt"), map_location="cpu")
-    # src_valid_sparse_float_IR = torch.load(os.path.join(DATA_DIRECTORY, "valid/sparse_float_IRs.pt"), map_location="cpu")
-    # src_train_sparse_float_Raman = torch.load(os.path.join(DATA_DIRECTORY, "train/sparse_float_Ramans.pt"), map_location="cpu")
-    # src_valid_sparse_float_Raman = torch.load(os.path.join(DATA_DIRECTORY, "valid/sparse_float_Ramans.pt"), map_location="cpu")
-    # src_train_sparse_float_IR = src_train_sparse_float_IR.to(torch.float32)
-    # src_valid_sparse_float_IR = src_valid_sparse_float_IR.to(torch.float32)
-    # src_train_sparse_float_Raman = src_train_sparse_float_Raman.to(torch.float32)
-    # src_valid_sparse_float_Raman = src_valid_sparse_float_Raman.to(torch.float32)
-
-    #standardization
-    # IR_min = min(src_train_IR.min(), src_val_IR.min(), src_test_IR.min())
-    # IR_max = max(src_train_IR.max(), src_val_IR.max(), src_test_IR.max())
-    # Raman_min = min(src_train_Raman.min(), src_val_Raman.min(), src_test_Raman.min())
-    # Raman_max = max(src_train_Raman.max(), src_val_Raman.max(), src_test_Raman.max())
-
-    # src_train_IR_standardized = (src_train_IR - IR_min) / (IR_max - IR_min)
-    # src_val_IR_standardized = (src_val_IR - IR_min) / (IR_max - IR_min)
-    # src_test_IR_standardized = (src_test_IR - IR_min) / (IR_max - IR_min)
-    # src_train_Raman_standardized = (src_train_Raman - Raman_min) / (Raman_max - Raman_min)
-    # src_val_Raman_standardized = (src_val_Raman - Raman_min) / (Raman_max - Raman_min)
-    # src_test_Raman_standardized = (src_test_Raman - Raman_min) / (Raman_max - Raman_min)
-
-
-
 
     smiles_train = torch.load(os.path.join(DATA_DIRECTORY, "train/smiles_ids.pt"), map_location="cpu")
-    smiles_valid = torch.load(os.path.join(DATA_DIRECTORY, "valid/smiles_ids.pt"), map_location="cpu")
-    smiles_test = torch.load(os.path.join(DATA_DIRECTORY, "test/smiles_ids.pt"), map_location="cpu")
     smiles_attention_mask_train = torch.load(os.path.join(DATA_DIRECTORY, "train/smiles_attention_masks.pt"), map_location="cpu")
     smiles_attention_mask_valid = torch.load(os.path.join(DATA_DIRECTORY, "valid/smiles_attention_masks.pt"), map_location="cpu")
-    smiles_attention_mask_test = torch.load(os.path.join(DATA_DIRECTORY, "test/smiles_attention_masks.pt"), map_location="cpu")
 
-    # print("src_train_freq")
-    # print(src_train_freq.shape)
-    # print("src_train_IR")
-    # print(src_train_IR.shape)
-    # print("src_train_Raman")
-    # print(src_train_Raman.shape)
-    # print("src_train_attention_masks")
-    # print(src_train_attention_masks.shape)
-    # print("smiles_train")
-    # print(smiles_train.shape)
-    # print("smiles_attention_mask_train")
-    # print(smiles_attention_mask_train.shape)
-
-    # dataset_train = TensorDataset(src_train_freq, src_train_IR, src_train_Raman, src_train_attention_masks, smiles_train, smiles_attention_mask_train, composition_train_chars, composition_train_masks)
-    # dataset_train = TensorDataset(src_train_freq[:DATA_POINT], src_train_IR[:DATA_POINT], src_train_Raman[:DATA_POINT], src_train_attention_masks[:DATA_POINT], smiles_train[:DATA_POINT], smiles_attention_mask_train[:DATA_POINT], composition_train_chars[:DATA_POINT], composition_train_masks[:DATA_POINT])
-    # dataset_train = TensorDataset(src_train_sparse_float_IR[:DATA_POINT], composition_train_chars[:DATA_POINT], composition_train_masks[:DATA_POINT], smiles_train[:DATA_POINT], smiles_attention_mask_train[:DATA_POINT])
     dataset_train = TensorDataset(src_train_freq, src_train_IR, src_train_Raman, src_train_attention_masks, smiles_train, smiles_attention_mask_train)
     dataset_valid = TensorDataset(src_val_freq, src_val_IR, src_val_Raman, src_val_attention_masks, smiles_valid, smiles_attention_mask_valid)
-    # dataset_train_for_eval = TensorDataset(tgt_train_for_eval, tgt_train_mask_for_eval)
-    # dataset_test = TensorDataset(tgt_test, tgt_test_mask)
     train_dataloader = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True)
     valid_dataloader = DataLoader(dataset_valid, batch_size=BATCH_SIZE, shuffle=False)
-    # train_dataloader_for_eval = DataLoader(dataset_train_for_eval, batch_size=BATCH_SIZE, shuffle=False)
-    # test_dataloader = DataLoader(dataset_test, batch_size=BATCH_SIZE, shuffle=False)
-    # model = FunctionalPredictorFreqIrRaman(model_params)
     
     model = SmilesPredictor3dimFreqIrRaman(model_params)
 
@@ -187,7 +130,7 @@ def main(BATCH_SIZE):
     # optimizer = TransOptimizerWrapper(optimizer)
     trainer = SmilesTrainer3dimFreqIrRaman()
 
-    #json化と保存
+    # save
     import json
     with open(f"{BASE_DIRECTORY}/{MODEL_DIRECTORY}/{SAVE_DIRECTORY_NAME}/model_params.json", "w") as f:
         json.dump(model_params, f, indent=4)
